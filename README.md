@@ -21,7 +21,7 @@ sudo snap install terraform
 type -a terraform
 ```
 
-## Defining your infrastructure
+## Provider configuration
 
 In your file system, you will create `terraform` files, with the extension `tf`. The first step is to define a provider. So create a new file named `provider.tf`.
 
@@ -44,8 +44,12 @@ provider "oci" {
     fingerprint = "${var.fingerprint}"
     private_key_path = "${var.private_key_path}"
     region = "${var.region}"
+    # Running on OCI Infra? Can use dynamic groups and the InstancePrincipal auth setting
+    # auth = "InstancePrincipal"
 }
 ```
+
+If you are running your terraform through an OCI instance, you can avoid setting up authorisation against your account and use the `InstancePrincipal` auth setting.
 
 You will notice most of these setting values are variables. So, first off, we better understand how variables are defined.
 
@@ -53,7 +57,7 @@ You will notice most of these setting values are variables. So, first off, we be
 
 Variables are deinfed in a `tf` file. So, in the root folder of your terraform config, named `variables.tf`. And then variables would be defined like so:
 
-```terraform
+```
 variable "region" {
     type ="string"
     description = "The accounts region"
@@ -63,17 +67,27 @@ variable "region" {
 
 For these more secure details, you will want an environment file to set these values, and Terraform will pick these up as values:
 
-```
+```bash
 export TF_VAR_tenancy_ocid=ocid1.tenancy.oc1..xxx
-export TF_VAR_compartment_ocid=ocid1.compartment.oc1..xxx
+export TF_VAR_compartment_id=ocid1.compartment.oc1..xxx
 export TF_VAR_user_ocid=ocid1.user.oc1..xxx
-export TF_VAR_fingerprint=
-export TF_VAR_private_key_path=$HOME/.oci/oci_api_key_personal.pem
+export TF_VAR_fingerprint=xx:yy
+export TF_VAR_private_key_path=$HOME/.oci/oci_api_key.pem
 ```
 
-What to set these values at? These are just values used by and API/SDK, so if you install the oci-cli tool, you would have configured this and have a file: `$HOME/.oci/config`, so I suggest to extract the values from here.
+Then before you run your `terraform` command, source these variables. I've named my file auth_env, so I would run
 
-Once these first two basic parts are set up, you will now want to run terraform init. This will download the plugin for your given provider. The provider is a binary file that is downloaded into the `.terrform` folder so it knows how to interact with the provider each time you deploy changes.
+```bash
+source auth_env
+```
+
+You can extract these values from your console in OCI, excluding the fingerprint and private key path. For these, the best way would be to install the oci-cli command and run:
+
+```bash
+oci setup config
+```
+
+With this initial basic set up, we can get started with out configuration. The first step is the `init` operation. This will download the plugin for your provider defined in `provider.tf`. This downloads a binary file into the `.terrform` folder in your root project directory so it knows how to interact with the provider each time you deploy changes.
 
 ```
 terraform init
@@ -105,126 +119,86 @@ commands will detect it and remind you to do so if necessary.
 
 After the initialisation of terraform, we can begin by defining our infrastructure set up.
 
-State file is how terraform knows what needs migrations. Into a file
-terraform.tfstate (stored in root directory). It's a map of all the resources to
-their resource identifier. 
-
-Local state file - locally machine in JSON - common source of conflict from VCS.
-Good for small teams (individual or small). Not good for scalability on larger
-teams. With a team of any size, it's a good idea to place the file in object
-storage. The state file can be configured to point at an external endpoint:
+First of all, let's define our users that will be managed with our terraform config. In your root folder, create a new file `user.tf`. Over on the Terraform docs, under the subsection `Identity Resources` we can find the specs for a user. It falls under `oci_identity_user`. At minimum, you will want to set `description` and `name`. This gives as a resource that looks like:
 
 ```
-terraform {
-    backend "http" {
-        update_method = "PUT"
-        address = "https://objectstorage.region.oraclecloud.com/access_uri
-    }
-}
-
-This goes in the provider.tf file.
-In object storage, create an empty file for the tfstate file
-(terraform.tfstate). Then, in OCI create a pre-authenticate request URI (extend
-the length so it lasts for a long time). Then use that URL in the config so
-other users can update it with that URL.
-
-Once that is configured 
-
-For larger teams this
-
-Provider
-
-```
-
-```
-
-As you can see these are using variables, these go in an `env_vars` file, that
-looks like:
-
-```
-TODO
-```
-
-A user resource looks like:
-
-user.tf:
-```
-resource "oci\_identity\_user" "tschf" {
+resource "oci_identity_user" "tschf" {
     name = "tschf"
     description = "First terraform user"
 }
 ```
 
-terraform plan - shows what will be done
-terraform apply - performs the actions you reviewed (outstanding tasks).
-terraform show - shows info in the state file
-terraform destroy - undoes changes pushed. iIt will backup the state file
-
-For both plan and apply, you can use the target argument to only push a
-particular resource.
+Now that we have a basic resource, we are ready to see terraform in action. Before deploying any changes you will likely want to see the actions terraform is going to apply. This is done with the command `terraform plan`.
 
 ```
-terraform plan -target=oci\_identity\_user.tschf
+$ terraform-plan
+Refreshing Terraform state in-memory prior to plan...
+The refreshed state will be used to calculate this plan, but will not be
+persisted to local or remote state storage.
+
+
+------------------------------------------------------------------------
+
+An execution plan has been generated and is shown below.
+Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # oci_identity_user.tschf will be created
+  + resource "oci_identity_user" "tschf" {
+      + capabilities         = (known after apply)
+      + compartment_id       = (known after apply)
+      + defined_tags         = (known after apply)
+      + description          = "First terraform user"
+      + email                = (known after apply)
+      + external_identifier  = (known after apply)
+      + freeform_tags        = (known after apply)
+      + id                   = (known after apply)
+      + identity_provider_id = (known after apply)
+      + inactive_state       = (known after apply)
+      + name                 = "tschf"
+      + state                = (known after apply)
+      + time_created         = (known after apply)
+    }
+
+Plan: 1 to add, 0 to change, 0 to destroy.
 ```
--target can be an array, if you'd like multiple resources to be deployed
-`-target resource1 -target resource2`.
 
-Terraform initialised with `terraform init`
+If everything looks good, you apply the changes with `terraform apply`.
 
+### Modules
 
-Modules
-
-These are terraform configs inside of a folder
-
-eg
+To keep your terraform structure more maintainable, you will want to leverage terraforms [module](https://www.terraform.io/docs/modules/index.html) system. This is basically breaking up your config into a folder structure. For example, we may have a folder for the core network, another for compute instances. So in your root directory, you have a `main.tf` file. The source property will tell us in which folder the module is defined in.
 
 ```
-
 module "vcn" {
-
     source "./vcn"
-    compartment_ocid = "${var.todo_var}"
-    tenancy_ocid = "${var.todo_var}"
-    vcn_dns_name = "${var.todo_var}"
-    label_prefix = "${var.todo_var}"
-    vcn_name = "${var.todo_var}"
-    vcn_cidr = "${var.todo_var}"
-    subnet_cidr= "${var.todo_var}"
-    availability_domains = "${var.todo_var}"
+    compartment_id = "${var.compartment_id}"
 }
 ```
 
-So, this would be in the root folder, then we would have a "vcn" folder
-
-So the directory tree looks like:
-
-env_vars
-main.tf
-provider.tf
-variables.tf
-vcn/
-
-inside the vcn folder, there would be the file vcn.tf, that looks like:
+In the vcn folder, we need a new `variables.tf` file - there may be some variables re-declared that were in your root folder (they aren't inherited). Then, we would expect to have a new file, `vcn.tf` with our network properties ([docs](https://www.terraform.io/docs/providers/oci/r/core_vcn.html)):
 
 ```
-resource "oci_core_vcn" "vcn" {
-    cidr_block ="var_todo"
-    compartment_id = "var_todo"
-    display_name = "var_todo"
-    dns_label = "var_todo"
+resource "oci_core_vcn" "test_vcn" {
+    cidr_block = "${var.vcn_cidr_block}"
+    compartment_id = "${var.compartment_id}"
+    display_name = "${var.vcn_display_name}"
+    dns_label = "${var.vcn_dns_label}"
 }
 
-resource "oci_core_internet_gateway" "ig" {
-    compartment_id = "var_todo"
-    display_name = "var_todo"
+resource "oci_core_internet_gateway" "igw" {
+    compartment_id = "${var.compartment_id}"
+    display_name = "${var.igw_display_name}"
     vcn_id = "${oci_core_vcn.vcn.id"}
 }
 
-resource "oci_core_route_table" "ig_route" {
+resource "oci_core_route_table" "igw_route" {
 
-    compartment_id
+    compartment_id = "${var.compartment_id}
     vcn_id
-    display_name
+    display_name = "${var.igw_route_display_name}"
 
     route_rules {
         destination
@@ -234,75 +208,82 @@ resource "oci_core_route_table" "ig_route" {
 }
 ```
 
-In the vcn folder, other files, to break up the config would be like:
+(as you can see here, you can reference previously defined resource properties)
 
-datasources.tf
-outputs.tf
-security.tf
-subnets.tf
-variables.tf
-vcn.tf
-
-
-In the root directory, in your main.cf file, you would then define each module
-used. So for example our vcn module:
+Whenever you add a new module, you need to re-initialise to make that module "available" to use. So we can verify this configuration with:
 
 ```
-module "vcn" {
+terraform init
+terraform plan
+```
 
-    source = "./vcn"
-    compartment_ocid
-    tenancy_ocid
-    vcn_dns_name
-    label_prefix
-    vcn_name
-    vcn_cidr
-    subnet_cidr
-    availability_domains
+### Deploying
 
+As has been previously discussed through this document, to push the changes out to your infrastructure, you would typically run the two commands:
+
+```
+terraform plan
+terraform apply
+```
+
+The `plan` operation is a good practice to review what changes you will be pushing. If you have a lot of changes and want to deploy individual changes, you can restrict what get's deployed with the `-target` argument, where you specify the resource you want to deploy. In the example so far, we have set up a user and our VCN. So, suppose I only want to deploy the the VCN module, I could do:
+
+```
+terraform plan -target=module.vcn
+```
+
+(I can deploy multiple targets if there is large set of changes with `target=target1 -target=target2)
+
+### State file
+
+State file is how terraform knows what needs migrations. Into a file terraform.tfstate (stored in root directory). It's a map of all the resources to their resource identifier. The state can either be stored locally or remotely, where local is the default. If leaving as the default, it will be put into the file `terraform.tfstate` in the root directory. The format of this file is in JSON, but it's a good idea not to directly consume this file but rather use the `terraform show` command.
+
+A best practice is to NOT use a local tfstate file, but rather store it remotely - especially when you are working on a team. Otherwise the file we get to be out of date, and start causing conflicts. The state file is how Terraform knows what to deploy. 
+
+A good idea therefore is to place this file into OCI's object storage (or other remote location), and then in your `provider.tf` file, define this like so:
+
+```
+terraform {
+    backend "http" {
+        update_method = "PUT"
+        address = "https://objectstorage.region.oraclecloud.com/access_uri
+    }
 }
 ```
 
-Variables file typically defines variables like so:
+### Key commands
 
-```
-variable "vcn_name" {
-    type ="string"
-    description = "name of the vcn"
-    default = "tschf's network"
-}
-```
-Modules need to be initialised. So you need to do terraform init. Putting the
-data into variables means the developer won't need to go changing module source,
-really.
 
-Terraform has the concept of provisioners. These are execute scripts either
-locally or remotely as part of the the apply or destruction process of creating
-the infrastructure.
+terraform plan - shows what will be done
+terraform apply - performs the actions you reviewed (outstanding tasks).
+terraform show - shows info in the state file
+terraform destroy - undoes changes pushed. iIt will backup the state file
+
+For both plan and apply, you can use the target argument to only push a
+particular resource.
+
+### Provisioners
+
+Terraform has the concept of provisioners. These are execute scripts either locally or remotely as part of the the apply or destruction process of creating the infrastructure.
 
 ```
 provisioner "local-exec" {
     command = "echo '${self.public_ip},'"
 }
+```
 
-Provisioners work with chef, puppet, ansible, shell scripts. For remote exec the
-provision is `remote-exec`. Runs inside the machine that was created. For this
-example, this would go in your compute terraform file, along with inline
+Provisioners work with chef, puppet, ansible, shell scripts. For remote exec the provision is `remote-exec`. Runs inside the machine that was created. For this example, this would go in your compute terraform file, along with inline
 property instead of command, which is an array:
 
 ```
-privisioner "remote-exec" {
+provisioner "remote-exec" {
     inline = [
         "touch /home/tschf/setup.sh",
     ]
 }
 ```
 
-The previsioner statement is a nested setting within another. e.g. instead of
-compute instance, not at the same level.
-
-An alternate approach is to use the null resource, and in the provisioner
-specify a connect.
+The previsioner statement is a nested setting within another resource. If a system has already been deployed, an alternate approach is to use the null resource, and in the provisioner specify a connect.
 
 ```
 resource "null_resource" "remote-exec" {
@@ -314,11 +295,11 @@ resource "null_resource" "remote-exec" {
             timeout ="10m"
             host = "${data.oci_core_vnic.InstanceVnic.public_ip_address}"
             user = "ubuntu"
-            private_key = "${var.ssh_private_key"
+            private_key = "${var.ssh_private_key}"
         }
 
         inline = [
-            "touuch "/home/ubuntu/somefile"
+            "touch "/home/ubuntu/somefile"
         ]
     }
 }
@@ -328,3 +309,7 @@ resource "null_resource" "remote-exec" {
 If using instance principal, you don't need to specify tenance_ocid, user_ocid,
 fingerprint and private_key_path in the provider defn. But it needs to be
 enabled in the provider by doing: auth = "instancePrincipal"
+
+### Rollback changes
+
+You can undo your infrastructure with the command `terraform destroy`.
