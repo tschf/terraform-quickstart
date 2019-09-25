@@ -1,0 +1,5 @@
+export TF_VAR_tenancy_ocid=ocid1.tenancy.oc1..xxx
+export TF_VAR_compartment_id=ocid1.compartment.oc1..xxx
+export TF_VAR_user_ocid=ocid1.user.oc1..xxx
+export TF_VAR_fingerprint="TODO"
+export TF_VAR_private_key_path=$HOME/.oci/oci_api_key.pem
