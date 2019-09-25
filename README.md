@@ -1,7 +1,109 @@
-Terrform comes from Hashicorp company. Allows a way for you to define your
+# Terraform Quickstart
+
+## Overview
+
+This document is to show basic usage and steps to get up and going with terraform. Since I'm currently working with Oracle Cloud, it has that focus. It my evolve over time to cover more ground.
+
+## What is Terraform
+
+Terrform comes from the company Hashicorp. It provides a way for you to define your
 infrastructure in "code" - a configuration, so to speak. Another benefit is that
 if you ever wish to change providers, the change should be fairly
 straightforward.
+
+## Install
+
+Before you can do anything with Terraform, you need the application. I'm going to install it over the snap. Comparing the current published version to the version in the snap store, it's not the latest version - but seems pretty close, so should be sufficient.
+
+```
+sudo snap install terraform
+# Verify it's in your path so you can start using it
+type -a terraform
+```
+
+## Defining your infrastructure
+
+In your file system, you will create `terraform` files, with the extension `tf`. The first step is to define a provider. So create a new file named `provider.tf`.
+
+This file is defining where your infrastructure lives. Terraform supports many different [cloud providers](https://www.terraform.io/docs/providers/index.html), including but not limited to:
+
+* AWS
+* Azure
+* GCP
+* Oracle Cloud
+* Many more
+
+So, when defining your provider, you will want to first look here at your cloud platform. In here it provides you with not only the provider syntax, but also all the resources that you can define.
+
+So, for Oracle Cloud, the example given is:
+
+```
+provider "oci" {
+    tenancy_ocid = "${var.tenancy_ocid}"
+    user_ocid = "${var.user_ocid}"
+    fingerprint = "${var.fingerprint}"
+    private_key_path = "${var.private_key_path}"
+    region = "${var.region}"
+}
+```
+
+You will notice most of these setting values are variables. So, first off, we better understand how variables are defined.
+
+### Variables
+
+Variables are deinfed in a `tf` file. So, in the root folder of your terraform config, named `variables.tf`. And then variables would be defined like so:
+
+```terraform
+variable "region" {
+    type ="string"
+    description = "The accounts region"
+    default = "ap-sydney-1"
+}
+```
+
+For these more secure details, you will want an environment file to set these values, and Terraform will pick these up as values:
+
+```
+export TF_VAR_tenancy_ocid=ocid1.tenancy.oc1..xxx
+export TF_VAR_compartment_ocid=ocid1.compartment.oc1..xxx
+export TF_VAR_user_ocid=ocid1.user.oc1..xxx
+export TF_VAR_fingerprint=
+export TF_VAR_private_key_path=$HOME/.oci/oci_api_key_personal.pem
+```
+
+What to set these values at? These are just values used by and API/SDK, so if you install the oci-cli tool, you would have configured this and have a file: `$HOME/.oci/config`, so I suggest to extract the values from here.
+
+Once these first two basic parts are set up, you will now want to run terraform init. This will download the plugin for your given provider. The provider is a binary file that is downloaded into the `.terrform` folder so it knows how to interact with the provider each time you deploy changes.
+
+```
+terraform init
+
+Initializing provider plugins...
+- Checking for available provider plugins on https://releases.hashicorp.com...
+- Downloading plugin for provider "oci" (3.44.0)...
+
+The following providers do not have any version constraints in configuration,
+so the latest version was installed.
+
+To prevent automatic upgrades to new major versions that may contain breaking
+changes, it is recommended to add version = "..." constraints to the
+corresponding provider blocks in configuration, with the constraint strings
+suggested below.
+
+* provider.oci: version = "~> 3.44"
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+```
+
+After the initialisation of terraform, we can begin by defining our infrastructure set up.
 
 State file is how terraform knows what needs migrations. Into a file
 terraform.tfstate (stored in root directory). It's a map of all the resources to
@@ -33,14 +135,7 @@ For larger teams this
 Provider
 
 ```
-provider "oci" {
-    version = ">= 3.0.0"
-    tenancy_ocid = "${var.tenancy_ocid}"
-    user_ocid = "${var.user_ocid}"
-    fingerprint = "${var.fingerprint}"
-    private_key_path = "${var.private_key_path}"
-    region = "${var.region}"
-}
+
 ```
 
 As you can see these are using variables, these go in an `env_vars` file, that
