@@ -57,7 +57,7 @@ You will notice most of these setting values are variables. So, first off, we be
 
 ### Variables
 
-Variables are deinfed in a `tf` file. So, in the root folder of your terraform config, named `variables.tf`. And then variables would be defined like so:
+Variables are declared in a `tf` file. So, in the root folder of your terraform config, named `variables.tf` (convention). And then variables would be defined like so:
 
 ```
 variable "region" {
@@ -88,6 +88,8 @@ You can extract these values from your console in OCI, excluding the fingerprint
 ```bash
 oci setup config
 ```
+
+An alternate approach is to have a file with the extension `.tfvars`. If you name it `terraform.tfvars` this file will be loaded by default. Within this file, you define your key/value pairs. Terraform will automatically load this file when performing your plan/apply operations. If you give it another name, you would need to load it by the argument `-var=.tfvar_file`.
 
 With this initial basic set up, we can get started with out configuration. The first step is the `init` operation. This will download the plugin for your provider defined in `provider.tf`. This downloads a binary file into the `.terrform` folder in your root project directory so it knows how to interact with the provider each time you deploy changes.
 
