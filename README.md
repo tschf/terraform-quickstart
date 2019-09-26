@@ -251,17 +251,6 @@ terraform {
 }
 ```
 
-### Key commands
-
-
-terraform plan - shows what will be done
-terraform apply - performs the actions you reviewed (outstanding tasks).
-terraform show - shows info in the state file
-terraform destroy - undoes changes pushed. iIt will backup the state file
-
-For both plan and apply, you can use the target argument to only push a
-particular resource.
-
 ### Provisioners
 
 Terraform has the concept of provisioners. These are execute scripts either locally or remotely as part of the the apply or destruction process of creating the infrastructure.
