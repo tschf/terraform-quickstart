@@ -21,6 +21,8 @@ sudo snap install terraform
 type -a terraform
 ```
 
+But really, the download file from their website is just a zip file that contains a single binary - so the installation process is very straight foward. Just download, unzip, add make sure it's in your path.
+
 ## Provider configuration
 
 In your file system, you will create `terraform` files, with the extension `tf`. The first step is to define a provider. So create a new file named `provider.tf`.
@@ -250,6 +252,10 @@ terraform {
     }
 }
 ```
+
+### Data Source
+
+A data source in terraform is a means to get data from your infrastructure in order to use that value elsewhere, whether that be referenced in another resource object or simply to output the value. Almost all resources that have a resource type have a corresponding data source. 
 
 ### Outputs
 
