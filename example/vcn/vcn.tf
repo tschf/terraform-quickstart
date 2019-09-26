@@ -23,3 +23,11 @@ resource "oci_core_route_table" "igw_route" {
     }
 
 }
+
+output "vcn_display_name" {
+  value = oci_core_vcn.test_vcn.display_name
+}
+
+output "igw_display_name" {
+  value = oci_core_internet_gateway.igw.display_name
+}

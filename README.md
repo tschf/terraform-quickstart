@@ -251,6 +251,80 @@ terraform {
 }
 ```
 
+### Outputs
+
+In your configuration, you can configure [`output`](https://www.terraform.io/docs/configuration/outputs.html) to be displayed after running the `apply` operation. This is especially useful for example if you are provisioning a new compute instance and you want to see the IP Address information. The basic syntax resembles:
+
+```
+output "output_name" {
+    value = "todo"
+}
+```
+
+Where the syntax for value can reference a previously defined resource or a data source property. The example given in the documentation for OCI prints out the availability domains by specifying a data source and then a corresponding output (within `provider.tf`).
+
+```
+# Get a list of Availability Domains
+data "oci_identity_availability_domains" "ads" {
+  compartment_id = "${var.tenancy_ocid}"
+}
+
+# Output the result
+output "show-ads" {
+  value = data.oci_identity_availability_domains.ads.availability_domains
+}
+```
+
+Then end result is that when you run the `apply` operation, you would see output displayed on the screen:
+
+```
+Outputs:
+
+show-ads = [
+  {
+    "compartment_id" = "ocid1.tenancy.oc1..xxx"
+    "id" = "ocid1.availabilitydomain.oc1..xxx"
+    "name" = "zpVX:AP-SYDNEY-1-AD-1"
+  },
+]
+```
+
+These are additionally maintained in the `tfstate` file and can be queried later at any time by running:
+
+```
+terraform output show-ads
+```
+
+(show-ads is an optional parameter for the output name. If you ommit it, all outputs will be rendered)
+
+In the case of modules, the outputs are returned to the root, and not output. So, you need to declare the output in the module, and then again in the root directory.
+
+For example, in our vcn.tf file we would have defined:
+
+```
+output "vcn_display_name" {
+  value = oci_core_vcn.test_vcn.display_name
+}
+
+output "igw_display_name" {
+  value = oci_core_internet_gateway.igw.display_name
+}
+```
+
+Then, in our root folder, we create a new file, `outputs.tf`, where we add:
+
+```
+output "vcn_name" {
+    value = module.vcn.vcn_display_name
+}
+
+output "igw_name" {
+    value = module.vcn.igw_display_name
+}
+```
+
+One optional proerty of the output you may want to consider is `sensitive`. This will not output to the screen when you apply the changes, and only render on the screen if you show that specific element `terraform output sensitive_output`.
+
 ### Provisioners
 
 Terraform has the concept of provisioners. These are execute scripts either locally or remotely as part of the the apply or destruction process of creating the infrastructure.
